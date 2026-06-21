@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-cream font-sans text-ink antialiased;
+  margin: 0;
+}
+
+/* AI sparkle indicator animation */
+@keyframes ai-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+@keyframes ai-twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.ai-breathe {
+  animation: ai-breathe 3.2s ease-in-out infinite;
+  transform-origin: center;
+}
+.ai-twinkle-1 {
+  animation: ai-twinkle 1.7s ease-in-out infinite;
+}
+.ai-twinkle-2 {
+  animation: ai-twinkle 2.3s ease-in-out infinite 0.5s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-breathe,
+  .ai-twinkle-1,
+  .ai-twinkle-2 {
+    animation: none;
+  }
+}
