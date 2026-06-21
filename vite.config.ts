@@ -1,7 +1,11 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import type { IncomingMessage, ServerResponse } from "http";
 import react from "@vitejs/plugin-react";
-import { runExtract, runCritic, runCoherence } from "./api/_core";
+
+// The /api functions use explicit `.js` extensions on relative imports (required
+// by Node ESM on Vercel). esbuild (which bundles this config) can't resolve
+// `.js`-pointing-to-`.ts`, so the dev middleware loads the core through Vite's
+// own resolver at request time via server.ssrLoadModule instead of a static import.
 
 // Reads a JSON request body from a Node stream.
 function readJson(req: IncomingMessage): Promise<any> {
@@ -32,9 +36,13 @@ function devApi(key: string | undefined): Plugin {
   return {
     name: "speedbox-dev-api",
     configureServer(server) {
+      // Vite resolves the .js specifiers to .ts here (unlike esbuild config bundling).
+      const loadCore = () => server.ssrLoadModule("/api/_core.ts");
+
       server.middlewares.use("/api/extract", async (req, res, next) => {
         if (req.method !== "POST") return next();
         const body = await readJson(req);
+        const { runExtract } = await loadCore();
         const { result, usedGemini, error } = await runExtract(key, body);
         if (error) server.config.logger.warn(`[dev api] extract -> mock (Gemini error: ${error})`);
         else server.config.logger.info(`[dev api] extract via ${usedGemini ? "GEMINI" : "mock"}`);
@@ -43,6 +51,7 @@ function devApi(key: string | undefined): Plugin {
       server.middlewares.use("/api/critic", async (req, res, next) => {
         if (req.method !== "POST") return next();
         const body = await readJson(req);
+        const { runCritic } = await loadCore();
         const { result, usedGemini, error } = await runCritic(key, body);
         if (error) server.config.logger.warn(`[dev api] critic -> mock (Gemini error: ${error})`);
         else server.config.logger.info(`[dev api] critic via ${usedGemini ? "GEMINI" : "mock"}`);
@@ -51,6 +60,7 @@ function devApi(key: string | undefined): Plugin {
       server.middlewares.use("/api/coherence", async (req, res, next) => {
         if (req.method !== "POST") return next();
         const body = await readJson(req);
+        const { runCoherence } = await loadCore();
         const { result, usedGemini, error } = await runCoherence(key, body.form);
         if (error) server.config.logger.warn(`[dev api] coherence -> mock (Gemini error: ${error})`);
         else server.config.logger.info(`[dev api] coherence via ${usedGemini ? "GEMINI" : "mock"}`);

@@ -24,7 +24,7 @@ function readUsage(r: any): TokenUsage {
   const totalTokens = um.totalTokenCount || inputTokens + outputTokens;
   return { inputTokens, outputTokens, totalTokens };
 }
-import { mockExtract, mockCritic, mockCoherence } from "./_mock";
+import { mockExtract, mockCritic, mockCoherence } from "./_mock.js";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -243,6 +243,7 @@ export async function runExtract(
     return { result: out, usedGemini: true };
   } catch (e) {
     const aiError = String((e as Error)?.message || e);
+    console.error("[ai] model call failed:", aiError);
     return {
       result: { ...mockExtract(input.sampleId), source: "mock", aiError },
       usedGemini: false,
@@ -288,6 +289,7 @@ export async function runCritic(
     return { result: parsed, usedGemini: true };
   } catch (e) {
     const aiError = String((e as Error)?.message || e);
+    console.error("[ai] model call failed:", aiError);
     return {
       result: { ...mockCritic(input.image?.sampleId, input.form), source: "mock", aiError },
       usedGemini: false,
@@ -335,6 +337,7 @@ export async function runCoherence(
     return { result: parsed, usedGemini: true };
   } catch (e) {
     const aiError = String((e as Error)?.message || e);
+    console.error("[ai] model call failed:", aiError);
     return {
       result: { ...mockCoherence(form), source: "mock", aiError },
       usedGemini: false,

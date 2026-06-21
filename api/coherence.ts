@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { runCoherence } from "./_core";
+import { runCoherence } from "./_core.js";
 import type { ShipmentForm } from "../src/lib/schema";
 
 const KEY =

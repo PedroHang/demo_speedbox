@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { runCritic } from "./_core";
+import { runCritic } from "./_core.js";
 
 const KEY =
   process.env.GOOGLE_AI_API_KEY ||

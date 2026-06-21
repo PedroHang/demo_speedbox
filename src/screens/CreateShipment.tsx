@@ -311,12 +311,15 @@ export default function CreateShipment({
           </span>
           <div>
             <p className="text-sm font-semibold text-danger">
-              AI is temporarily unavailable
+              AI did not return a real result
             </p>
             <p className="mt-0.5 text-xs text-muted">
-              The model could not be reached (rate limit or billing). The fields
-              below are <strong>sample data, not your uploaded invoice</strong>.
-              Fix the billing and re-validate to read the real document.
+              The fields below are{" "}
+              <strong>sample data, not your uploaded invoice</strong>. Re-validate
+              to retry. Details below show the exact reason.
+            </p>
+            <p className="mt-1 break-all rounded bg-white/60 px-2 py-1 font-mono text-[11px] text-muted/90">
+              {aiError}
             </p>
           </div>
         </div>
