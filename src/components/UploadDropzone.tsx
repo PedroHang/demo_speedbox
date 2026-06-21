@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { SampleInvoice } from "../lib/schema";
 import AiIndicator from "./AiIndicator";
+import PhoneScanModal from "./PhoneScanModal";
 
 interface UploadDropzoneProps {
   samples: SampleInvoice[];
@@ -69,6 +70,7 @@ export default function UploadDropzone({
   const [hover, setHover] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [showPhone, setShowPhone] = useState(false);
 
   const accept =
     "image/*,application/pdf,.pdf,.png,.jpg,.jpeg,.webp,.docx,.html,.htm,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -184,6 +186,41 @@ export default function UploadDropzone({
         </div>
       </div>
 
+      {/* phone capture (presentational concept) */}
+      <button
+        type="button"
+        onClick={() => setShowPhone(true)}
+        className="group mt-4 flex w-full items-center gap-4 rounded-xl border border-[#E5E7EB] bg-white p-4 text-left shadow-sm transition hover:border-orange hover:shadow-md"
+      >
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-peachFrom text-orange">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="7" y="2" width="10" height="20" rx="2.5" />
+            <path d="M11 18h2" />
+          </svg>
+        </span>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+            Scan with your phone
+            <span className="rounded-full bg-navy/5 px-2 py-0.5 text-[10px] font-semibold text-navy">
+              Preview
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted">
+            No scanner on your desk? Capture the paper invoice with your phone
+            camera and it lands right here.
+          </p>
+        </div>
+        <span className="text-muted transition group-hover:translate-x-0.5">→</span>
+      </button>
+
       {/* sample cards */}
       <div className="mt-6">
         <div className="text-sm font-medium text-ink mb-3">
@@ -226,6 +263,8 @@ export default function UploadDropzone({
           ))}
         </div>
       </div>
+
+      <PhoneScanModal open={showPhone} onClose={() => setShowPhone(false)} />
     </div>
   );
 }
