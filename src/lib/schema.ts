@@ -91,6 +91,66 @@ export interface TokenUsage {
   totalTokens: number;
 }
 
+// ----- Ops Copilot assistant contract -----
+// The lifecycle status of a shipment, surfaced in the Admin table and reasoned
+// over by the Ops Copilot.
+export type ShipmentStatus =
+  | "Placed"
+  | "At Warehouse"
+  | "In Transit"
+  | "Customs Hold"
+  | "Delivered"
+  | "Exception"
+  | "RTO";
+
+// A shipment flattened to exactly what the assistant needs to reason (no PII the
+// model does not need). Built from a ShipmentRecord via store.toAssistantShipment.
+export interface AssistantShipment {
+  id: string;
+  createdAt: number;
+  method: "manual" | "ai";
+  status: ShipmentStatus;
+  shipperCompany: string;
+  consigneeCompany: string;
+  origin: string;
+  destination: string;
+  carrier: string;
+  declaredValueINR: number;
+  weightKg: number;
+  goods: { description: string; hsnCode: string; quantity: number }[];
+  openWarnings: { path: string; severity: "error" | "warn"; message: string }[];
+  hasUnaddressed: boolean;
+}
+
+// A pointer from an answer to a specific shipment, with a short reason.
+export interface AssistantRef {
+  id: string;
+  reason: string;
+}
+
+// A label/value figure the assistant surfaces alongside its answer.
+export interface AssistantMetric {
+  label: string;
+  value: string;
+}
+
+// Request body for POST /api/assistant.
+export interface AssistantRequest {
+  question: string;
+  shipments: AssistantShipment[];
+  history?: { role: "user" | "assistant"; text: string }[];
+}
+
+// Response body for POST /api/assistant.
+export interface AssistantResponse {
+  answer: string;
+  refs: AssistantRef[];
+  metrics?: AssistantMetric[];
+  usage?: TokenUsage;
+  source?: "gemini" | "mock";
+  aiError?: string;
+}
+
 // What /api/extract returns (after the function assembles Gemini's flat output).
 export interface ExtractionResult {
   form: ShipmentForm;

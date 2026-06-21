@@ -66,6 +66,15 @@ function devApi(key: string | undefined): Plugin {
         else server.config.logger.info(`[dev api] coherence via ${usedGemini ? "GEMINI" : "mock"}`);
         sendJson(res, result);
       });
+      server.middlewares.use("/api/assistant", async (req, res, next) => {
+        if (req.method !== "POST") return next();
+        const body = await readJson(req);
+        const { runAssistant } = await server.ssrLoadModule("/api/_assistant.ts");
+        const { result, usedGemini, error } = await runAssistant(key, body);
+        if (error) server.config.logger.warn(`[dev api] assistant -> mock (Gemini error: ${error})`);
+        else server.config.logger.info(`[dev api] assistant via ${usedGemini ? "GEMINI" : "mock"}`);
+        sendJson(res, result);
+      });
     },
   };
 }

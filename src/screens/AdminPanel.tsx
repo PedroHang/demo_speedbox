@@ -1,15 +1,22 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
-import type { ShipmentForm, ValidationIssue } from "../lib/schema";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type {
+  ShipmentForm,
+  ShipmentStatus,
+  ValidationIssue,
+} from "../lib/schema";
 import {
   subscribeShipments,
   getShipments,
   updateShipment,
   computeUnaddressed,
+  toAssistantShipment,
   type ShipmentRecord,
 } from "../lib/store";
 import { checkCoherence } from "../lib/api";
 import { recordUsage } from "../lib/usage";
+import { seedShipmentsIfEmpty } from "../lib/seed";
 import ReviewForm from "../components/ReviewForm";
+import AssistantPanel from "../components/AssistantPanel";
 
 function fmtDate(ts: number): string {
   try {
@@ -25,30 +32,72 @@ function fmtDate(ts: number): string {
   }
 }
 
+// Map a lifecycle status to a small colored badge using the Allied tokens.
+function StatusBadge({ status }: { status: ShipmentStatus }) {
+  const styles: Record<ShipmentStatus, string> = {
+    Delivered: "bg-ok/10 text-ok",
+    "In Transit": "bg-navy/10 text-navy",
+    "Customs Hold": "bg-danger/10 text-danger",
+    Exception: "bg-warn/15 text-[#9A6A00]",
+    "At Warehouse": "bg-orange/10 text-orange",
+    RTO: "bg-muted/15 text-muted",
+    Placed: "bg-muted/15 text-muted",
+  };
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${styles[status]}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 export default function AdminPanel() {
   const shipments = useSyncExternalStore(subscribeShipments, getShipments);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const selected = useMemo(
     () => shipments.find((s) => s.id === selectedId) || null,
     [shipments, selectedId]
   );
 
-  if (selected) {
-    return (
-      <AdminDetail
-        key={selected.id}
-        record={selected}
-        onBack={() => setSelectedId(null)}
-      />
-    );
+  // Seed the demo fleet once so the table (and the copilot) has data on open.
+  useEffect(() => {
+    seedShipmentsIfEmpty();
+  }, []);
+
+  // When the copilot references a shipment, leave any open detail, scroll its
+  // row into view and pulse it. A rAF lets the list re-render before we look up
+  // the row element.
+  function focusShipment(id: string) {
+    if (selectedId) setSelectedId(null);
+    setFocusId(id);
   }
+
+  useEffect(() => {
+    if (!focusId) return;
+    requestAnimationFrame(() => {
+      const el = document.getElementById("ship-row-" + focusId);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.classList.add("ship-flash");
+      setTimeout(() => el?.classList.remove("ship-flash"), 2400);
+    });
+  }, [focusId, selectedId]);
 
   const flagged = shipments.filter((s) => s.hasUnaddressed).length;
   const openCount = (s: ShipmentRecord) =>
     s.issues.filter((i) => !s.acknowledged.includes(i.path)).length;
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <>
+      {selected ? (
+        <AdminDetail
+          key={selected.id}
+          record={selected}
+          onBack={() => setSelectedId(null)}
+        />
+      ) : (
+        <div className="mx-auto max-w-6xl px-6 py-8">
       <h1 className="text-2xl font-semibold text-ink">Admin · Shipment History</h1>
       <p className="mt-1 text-sm text-muted">
         Every shipment placed by customers.{" "}
@@ -67,6 +116,7 @@ export default function AdminPanel() {
               <th className="px-4 py-3">Consignee</th>
               <th className="px-4 py-3">Destination</th>
               <th className="px-4 py-3">Carrier</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">AI</th>
               <th className="px-4 py-3" />
             </tr>
@@ -74,13 +124,17 @@ export default function AdminPanel() {
           <tbody>
             {shipments.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted">
                   No shipments yet. Place one from the customer side.
                 </td>
               </tr>
             )}
             {shipments.map((s) => (
-              <tr key={s.id} className="border-t border-[#E5E7EB] hover:bg-fieldBg">
+              <tr
+                key={s.id}
+                id={"ship-row-" + s.id}
+                className="border-t border-[#E5E7EB] hover:bg-fieldBg"
+              >
                 <td className="px-4 py-3 font-medium text-ink">{s.id}</td>
                 <td className="px-4 py-3 text-muted">{fmtDate(s.createdAt)}</td>
                 <td className="px-4 py-3">
@@ -97,6 +151,9 @@ export default function AdminPanel() {
                     .join(", ") || "—"}
                 </td>
                 <td className="px-4 py-3 text-muted">{s.form.service.carrier}</td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={s.status ?? "Placed"} />
+                </td>
                 <td className="px-4 py-3">
                   {s.hasUnaddressed ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-semibold text-[#9A6A00]">
@@ -123,7 +180,14 @@ export default function AdminPanel() {
           </tbody>
         </table>
       </div>
-    </div>
+        </div>
+      )}
+
+      <AssistantPanel
+        shipments={shipments.map(toAssistantShipment)}
+        onFocusShipment={focusShipment}
+      />
+    </>
   );
 }
 

@@ -1,9 +1,12 @@
 import type {
+  AssistantRequest,
+  AssistantResponse,
   ExtractionResult,
   ShipmentForm,
   ValidationResult,
 } from "./schema";
 import { mockExtract, mockCritic, mockCoherence } from "./mock";
+import { mockAssistant } from "./assistantMock";
 
 // A document handed to the model: either raw bytes (image / PDF, read natively
 // by the vision model) or extracted text (HTML / DOCX, converted client-side).
@@ -63,6 +66,19 @@ export async function checkCoherence(
     return await postJSON<ValidationResult>("/api/coherence", { form });
   } catch {
     return { ...mockCoherence(form), source: "mock", aiError: NET_ERR };
+  }
+}
+
+// Ask the Ops Copilot a question grounded in the operator's live shipments. As
+// with the other calls, a network failure falls back to the bundled mock so the
+// drawer always answers.
+export async function askAssistant(
+  req: AssistantRequest
+): Promise<AssistantResponse> {
+  try {
+    return await postJSON<AssistantResponse>("/api/assistant", req);
+  } catch {
+    return { ...mockAssistant(req), source: "mock", aiError: NET_ERR };
   }
 }
 
