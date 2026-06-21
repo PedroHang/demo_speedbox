@@ -32,6 +32,25 @@ function fmtDate(ts: number): string {
   }
 }
 
+// Free-text match across the fields a courier clerk would search by.
+function matchesQuery(s: ShipmentRecord, term: string): boolean {
+  const hay = [
+    s.id,
+    s.form.consignee.company,
+    s.form.consignee.name,
+    s.form.shipper.company,
+    s.form.shipper.name,
+    s.form.consignee.city,
+    s.form.consignee.country,
+    s.form.service.carrier,
+    s.status ?? "Placed",
+    s.method === "ai" ? "ai invoice" : "manual",
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(term);
+}
+
 // Map a lifecycle status to a small colored badge using the Allied tokens.
 function StatusBadge({ status }: { status: ShipmentStatus }) {
   const styles: Record<ShipmentStatus, string> = {
@@ -52,10 +71,11 @@ function StatusBadge({ status }: { status: ShipmentStatus }) {
   );
 }
 
-export default function AdminPanel() {
+export default function AdminPanel({ query }: { query?: string }) {
   const shipments = useSyncExternalStore(subscribeShipments, getShipments);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [q, setQ] = useState(query ?? "");
   const selected = useMemo(
     () => shipments.find((s) => s.id === selectedId) || null,
     [shipments, selectedId]
@@ -88,6 +108,23 @@ export default function AdminPanel() {
   const openCount = (s: ShipmentRecord) =>
     s.issues.filter((i) => !s.acknowledged.includes(i.path)).length;
 
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return term ? shipments.filter((s) => matchesQuery(s, term)) : shipments;
+  }, [shipments, q]);
+
+  // The header "Track Shipment" search routes here with a query: mirror it into
+  // the table filter and, if it pins down a single shipment, highlight that row.
+  useEffect(() => {
+    if (query == null) return;
+    setQ(query);
+    const term = query.trim().toLowerCase();
+    if (!term) return;
+    const matches = shipments.filter((s) => matchesQuery(s, term));
+    if (matches.length === 1) focusShipment(matches[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
   return (
     <>
       {selected ? (
@@ -106,7 +143,35 @@ export default function AdminPanel() {
           : "No open AI warnings."}
       </p>
 
-      <div className="mt-6 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
+      <div className="mt-5 flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm"
+            aria-hidden
+          >
+            🔍
+          </span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search number, consignee, destination, status…"
+            className="w-full rounded-lg border border-[#E5E7EB] bg-white pl-9 pr-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:ring-2 focus:ring-navy/20"
+          />
+        </div>
+        {q && (
+          <button
+            onClick={() => setQ("")}
+            className="text-xs font-medium text-navy hover:underline"
+          >
+            Clear
+          </button>
+        )}
+        <span className="ml-auto text-xs text-muted">
+          {filtered.length} of {shipments.length}
+        </span>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-sm">
         <table className="w-full text-sm">
           <thead className="bg-navy text-left text-xs uppercase tracking-wide text-white">
             <tr>
@@ -122,61 +187,68 @@ export default function AdminPanel() {
             </tr>
           </thead>
           <tbody>
-            {shipments.length === 0 && (
+            {shipments.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-8 text-center text-muted">
                   No shipments yet. Place one from the customer side.
                 </td>
               </tr>
-            )}
-            {shipments.map((s) => (
-              <tr
-                key={s.id}
-                id={"ship-row-" + s.id}
-                className="border-t border-[#E5E7EB] hover:bg-fieldBg"
-              >
-                <td className="px-4 py-3 font-medium text-ink">{s.id}</td>
-                <td className="px-4 py-3 text-muted">{fmtDate(s.createdAt)}</td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-fieldBg px-2 py-0.5 text-xs">
-                    {s.method === "ai" ? "AI invoice" : "Manual"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-ink">
-                  {s.form.consignee.company || s.form.consignee.name || "—"}
-                </td>
-                <td className="px-4 py-3 text-muted">
-                  {[s.form.consignee.city, s.form.consignee.country]
-                    .filter(Boolean)
-                    .join(", ") || "—"}
-                </td>
-                <td className="px-4 py-3 text-muted">{s.form.service.carrier}</td>
-                <td className="px-4 py-3">
-                  <StatusBadge status={s.status ?? "Placed"} />
-                </td>
-                <td className="px-4 py-3">
-                  {s.hasUnaddressed ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-semibold text-[#9A6A00]">
-                      ⚑ {openCount(s)} open
-                    </span>
-                  ) : s.issues.length > 0 ? (
-                    <span className="rounded-full bg-ok/10 px-2 py-0.5 text-xs font-semibold text-ok">
-                      all confirmed
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted">clean</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => setSelectedId(s.id)}
-                    className="rounded-lg border border-navy px-3 py-1.5 text-xs font-semibold text-navy hover:bg-navy/5"
-                  >
-                    Open
-                  </button>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-muted">
+                  No shipments match “{q}”.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.map((s) => (
+                <tr
+                  key={s.id}
+                  id={"ship-row-" + s.id}
+                  className="border-t border-[#E5E7EB] hover:bg-fieldBg"
+                >
+                  <td className="px-4 py-3 font-medium text-ink">{s.id}</td>
+                  <td className="px-4 py-3 text-muted">{fmtDate(s.createdAt)}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full bg-fieldBg px-2 py-0.5 text-xs">
+                      {s.method === "ai" ? "AI invoice" : "Manual"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-ink">
+                    {s.form.consignee.company || s.form.consignee.name || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted">
+                    {[s.form.consignee.city, s.form.consignee.country]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted">{s.form.service.carrier}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={s.status ?? "Placed"} />
+                  </td>
+                  <td className="px-4 py-3">
+                    {s.hasUnaddressed ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-warn/15 px-2 py-0.5 text-xs font-semibold text-[#9A6A00]">
+                        ⚑ {openCount(s)} open
+                      </span>
+                    ) : s.issues.length > 0 ? (
+                      <span className="rounded-full bg-ok/10 px-2 py-0.5 text-xs font-semibold text-ok">
+                        all confirmed
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted">clean</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => setSelectedId(s.id)}
+                      className="rounded-lg border border-navy px-3 py-1.5 text-xs font-semibold text-navy hover:bg-navy/5"
+                    >
+                      Open
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

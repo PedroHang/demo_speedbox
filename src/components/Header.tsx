@@ -1,18 +1,34 @@
-// Top bar: decorative "Track Shipment" search, bell, user chip.
-export default function Header() {
+import { useState } from "react";
+
+// Top bar: a working "Track Shipment" search (routes to the admin shipment list
+// and highlights the match), bell, user chip.
+export default function Header({ onSearch }: { onSearch?: (q: string) => void }) {
+  const [q, setQ] = useState("");
+  const submit = () => {
+    const v = q.trim();
+    if (v) onSearch?.(v);
+  };
+
   return (
     <header className="h-16 shrink-0 bg-white border-b border-[#E5E7EB] flex items-center gap-4 px-6">
       <div className="flex-1 max-w-md">
         <div className="relative">
-          <span
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-sm"
-            aria-hidden
+          <button
+            type="button"
+            onClick={submit}
+            aria-label="Search shipments"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted text-sm hover:text-navy"
           >
             🔍
-          </span>
+          </button>
           <input
             type="text"
-            placeholder="Track Shipment"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+            }}
+            placeholder="Track Shipment (number, consignee, destination…)"
             className="w-full bg-fieldBg rounded-lg pl-9 pr-3 py-2 text-sm text-ink placeholder:text-muted outline-none focus:ring-2 focus:ring-navy/20"
           />
         </div>

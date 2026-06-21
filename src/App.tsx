@@ -14,6 +14,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("login");
   const [placedForm, setPlacedForm] = useState<ShipmentForm | null>(null);
   const [pendingService, setPendingService] = useState<ServiceChoice | null>(null);
+  const [adminQuery, setAdminQuery] = useState<string>("");
 
   // Login is full-bleed (its own layout + footer), no app shell.
   if (screen === "login") {
@@ -27,9 +28,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex bg-cream text-ink font-sans">
-      <Sidebar active={screen} onNavigate={setScreen} />
+      <Sidebar
+        active={screen}
+        onNavigate={(s) => {
+          if (s === "admin") setAdminQuery("");
+          setScreen(s);
+        }}
+      />
       <div className="flex-1 flex flex-col min-w-0">
-        <Header />
+        <Header
+          onSearch={(query) => {
+            setAdminQuery(query);
+            setScreen("admin");
+          }}
+        />
         <main className="flex-1 overflow-y-auto p-6">
           {screen === "dashboard" && (
             <Dashboard
@@ -67,7 +79,7 @@ export default function App() {
             />
           )}
 
-          {screen === "admin" && <AdminPanel />}
+          {screen === "admin" && <AdminPanel query={adminQuery} />}
         </main>
       </div>
       <UsagePanel />
